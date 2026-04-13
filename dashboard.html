@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>臺北市稽查系統</title>
+  <?!= include('styles'); ?>
+  <style>
+    body { align-items: flex-start; padding: 24px 16px; }
+  </style>
+</head>
+<body>
+
+<div class="dashboard-card">
+  <!-- 導覽列 -->
+  <div class="nav-bar">
+    <div>
+      <div class="nav-title">&#127982; 臺北市稽查系統</div>
+      <div class="nav-email" id="navEmail"></div>
+    </div>
+    <button class="btn btn-secondary"
+            style="width:auto;padding:6px 14px;font-size:13px;"
+            onclick="handleLogout()">
+      登出
+    </button>
+  </div>
+
+  <div class="dashboard-body">
+    <!-- 載入中 -->
+    <div id="loadingMsg" style="text-align:center;color:#718096;padding:20px 0;">
+      驗證登入狀態中...
+    </div>
+
+    <!-- 主要內容（驗證成功後顯示） -->
+    <div id="mainContent" style="display:none;">
+      <h2 style="font-size:17px;font-weight:700;color:#1a365d;margin-bottom:14px;">
+        歡迎回來
+      </h2>
+
+      <div class="profile-info">
+        <p><span class="profile-label">單位</span><strong id="profileUnit"></strong></p>
+        <p><span class="profile-label">姓名</span><strong id="profileName"></strong></p>
+        <p><span class="profile-label">電話</span><strong id="profilePhone"></strong></p>
+        <p><span class="profile-label">Email</span><strong id="profileEmail"></strong></p>
+      </div>
+
+      <hr class="divider">
+
+      <p style="font-size:14px;color:#4a5568;text-align:center;">
+        稽查表單功能開發中，敬請期待。
+      </p>
+    </div>
+
+    <!-- 驗證失敗 -->
+    <div id="authError" style="display:none;">
+      <div class="alert alert-error show">
+        登入狀態已失效，請重新登入。
+      </div>
+      <button class="btn btn-primary" onclick="goToLogin()" style="margin-top:12px;">
+        返回登入頁
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var WEB_APP_URL = '<?= CONFIG.WEB_APP_URL ?>';
+
+  function goToLogin() {
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('userEmail');
+    window.location.href = WEB_APP_URL;
+  }
+
+  function showProfile(profile) {
+    document.getElementById('profileUnit').textContent  = profile.unit  || '';
+    document.getElementById('profileName').textContent  = profile.name  || '';
+    document.getElementById('profilePhone').textContent = profile.phone || '';
+    document.getElementById('profileEmail').textContent = profile.email || '';
+    document.getElementById('navEmail').textContent     = profile.email || '';
+  }
+
+  function handleLogout() {
+    var sessionId = sessionStorage.getItem('sessionId');
+    if (sessionId) {
+      google.script.run.clientLogout(sessionId);
+    }
+    goToLogin();
+  }
+
+  // ── 啟動：驗證 Session ────────────────────────────────────
+  (function init() {
+    var sessionId = sessionStorage.getItem('sessionId');
+    if (!sessionId) {
+      document.getElementById('loadingMsg').style.display = 'none';
+      document.getElementById('authError').style.display  = 'block';
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        document.getElementById('loadingMsg').style.display = 'none';
+
+        if (!result || !result.valid) {
+          sessionStorage.removeItem('sessionId');
+          sessionStorage.removeItem('userEmail');
+          document.getElementById('authError').style.display = 'block';
+          return;
+        }
+
+        // Session 有效，載入 profile
+        google.script.run
+          .withSuccessHandler(function(profile) {
+            if (profile) {
+              showProfile(profile);
+            } else {
+              document.getElementById('navEmail').textContent = result.email || '';
+            }
+            document.getElementById('mainContent').style.display = 'block';
+          })
+          .withFailureHandler(function() {
+            // 取 profile 失敗不影響登入，仍顯示主畫面
+            document.getElementById('navEmail').textContent = result.email || '';
+            document.getElementById('mainContent').style.display = 'block';
+          })
+          .clientGetProfile(result.email);
+      })
+      .withFailureHandler(function() {
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('authError').style.display  = 'block';
+      })
+      .clientValidateSession(sessionId);
+  })();
+</script>
+
+</body>
+</html>

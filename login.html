@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>臺北市稽查系統 — 登入</title>
+  <?!= include('styles'); ?>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-logo">&#127982;</div>
+  <div class="card-title">臺北市稽查系統</div>
+  <div class="card-subtitle">Smoking Inspection Form</div>
+
+  <!-- 步驟指示器 -->
+  <div class="step-indicator">
+    <div class="step-dot active" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+    <div class="step-dot" id="dot3"></div>
+  </div>
+
+  <!-- 全域錯誤訊息 -->
+  <div class="alert alert-error" id="globalError"></div>
+  <div class="alert alert-info" id="globalInfo"></div>
+
+  <!-- ── Step 1：輸入 Email ── -->
+  <div class="step active" id="step1">
+    <div class="form-group">
+      <label for="emailInput">機關 Email</label>
+      <input type="email" id="emailInput" placeholder="user@gov.taipei"
+             autocomplete="email" inputmode="email">
+      <p class="hint">僅限 @gov.taipei 信箱登入</p>
+    </div>
+    <button class="btn btn-primary" id="sendOtpBtn" onclick="handleSendOtp()">
+      發送驗證碼
+    </button>
+  </div>
+
+  <!-- ── Step 2：輸入驗證碼 ── -->
+  <div class="step" id="step2">
+    <div class="alert alert-success show" id="otpSentMsg"></div>
+    <div class="form-group">
+      <label for="otpInput">6 位數驗證碼</label>
+      <input type="text" id="otpInput" class="otp-input"
+             placeholder="______" maxlength="6"
+             autocomplete="one-time-code" inputmode="numeric"
+             pattern="\d{6}">
+      <p class="hint">驗證碼 10 分鐘內有效</p>
+    </div>
+    <button class="btn btn-primary" id="verifyOtpBtn" onclick="handleVerifyOtp()">
+      驗證並登入
+    </button>
+    <div class="resend-row">
+      <button class="btn-link" onclick="handleResend()">重新發送驗證碼</button>
+    </div>
+  </div>
+
+  <!-- ── Step 3：第一次登入 — 填寫資料 ── -->
+  <div class="step" id="step3">
+    <p style="font-size:14px;color:#4a5568;margin-bottom:18px;">
+      初次登入，請填寫以下資料以完成註冊。
+    </p>
+    <div class="form-group">
+      <label for="unitSelect">服務單位</label>
+      <select id="unitSelect">
+        <option value="">— 請選擇 —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="nameInput">姓名</label>
+      <input type="text" id="nameInput" placeholder="請輸入姓名" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label for="phoneInput">公務電話</label>
+      <input type="tel" id="phoneInput" placeholder="02-XXXX-XXXX" autocomplete="tel">
+    </div>
+    <button class="btn btn-primary" id="registerBtn" onclick="handleRegister()">
+      完成註冊並登入
+    </button>
+  </div>
+</div>
+
+<script>
+  var currentEmail = '';
+
+  // ── 輔助函式 ──────────────────────────────────────────────
+
+  function setError(msg) {
+    var el = document.getElementById('globalError');
+    el.textContent = msg;
+    el.classList.toggle('show', !!msg);
+    document.getElementById('globalInfo').classList.remove('show');
+  }
+
+  function setInfo(msg) {
+    var el = document.getElementById('globalInfo');
+    el.textContent = msg;
+    el.classList.toggle('show', !!msg);
+    document.getElementById('globalError').classList.remove('show');
+  }
+
+  function setLoading(btnId, loading, text) {
+    var btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.textContent = loading ? '請稍候...' : text;
+  }
+
+  function goToStep(n) {
+    document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
+    document.getElementById('step' + n).classList.add('active');
+    setError('');
+    setInfo('');
+
+    // 更新步驟指示器
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.getElementById('dot' + i);
+      dot.classList.remove('active', 'done');
+      if (i < n) dot.classList.add('done');
+      else if (i === n) dot.classList.add('active');
+    }
+  }
+
+  // ── Step 1：發送 OTP ─────────────────────────────────────
+
+  function handleSendOtp() {
+    var email = document.getElementById('emailInput').value.trim();
+    if (!email) { setError('請輸入 Email'); return; }
+    if (!email.toLowerCase().endsWith('@gov.taipei')) {
+      setError('僅限 @gov.taipei 信箱登入');
+      return;
+    }
+
+    currentEmail = email.toLowerCase();
+    setLoading('sendOtpBtn', true, '發送驗證碼');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        setLoading('sendOtpBtn', false, '發送驗證碼');
+        if (result && result.success) {
+          document.getElementById('otpSentMsg').textContent =
+            '驗證碼已發送至 ' + currentEmail + '，請查收信件。';
+          goToStep(2);
+          setTimeout(function() { document.getElementById('otpInput').focus(); }, 100);
+        } else {
+          setError((result && result.error) || '發送失敗，請稍後再試');
+        }
+      })
+      .withFailureHandler(function(err) {
+        setLoading('sendOtpBtn', false, '發送驗證碼');
+        setError('系統錯誤：' + (err.message || err));
+      })
+      .clientSendOtp(email);
+  }
+
+  // ── Step 2：驗證 OTP ─────────────────────────────────────
+
+  function handleVerifyOtp() {
+    var code = document.getElementById('otpInput').value.trim();
+    if (!code || !/^\d{6}$/.test(code)) {
+      setError('請輸入 6 位數字驗證碼');
+      return;
+    }
+
+    setLoading('verifyOtpBtn', true, '驗證並登入');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        setLoading('verifyOtpBtn', false, '驗證並登入');
+        if (!result || !result.success) {
+          setError((result && result.error) || '驗證失敗');
+          return;
+        }
+
+        if (!result.isNewUser) {
+          // 舊使用者：儲存 session 後跳轉 dashboard
+          sessionStorage.setItem('sessionId', result.sessionId);
+          sessionStorage.setItem('userEmail', currentEmail);
+          window.location.href = '<?= CONFIG.WEB_APP_URL ?>?page=dashboard';
+        } else {
+          // 新使用者：前往 Step 3 填寫資料，先載入單位清單
+          loadUnits();
+          goToStep(3);
+        }
+      })
+      .withFailureHandler(function(err) {
+        setLoading('verifyOtpBtn', false, '驗證並登入');
+        setError('系統錯誤：' + (err.message || err));
+      })
+      .clientVerifyOtp(currentEmail, code);
+  }
+
+  function handleResend() {
+    if (!currentEmail) { goToStep(1); return; }
+    setLoading('sendOtpBtn', true, '發送驗證碼');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        setLoading('sendOtpBtn', false, '發送驗證碼');
+        if (result && result.success) {
+          document.getElementById('otpInput').value = '';
+          document.getElementById('otpSentMsg').textContent =
+            '驗證碼已重新發送至 ' + currentEmail + '，請查收信件。';
+          setError('');
+        } else {
+          setError((result && result.error) || '發送失敗');
+        }
+      })
+      .withFailureHandler(function(err) {
+        setLoading('sendOtpBtn', false, '發送驗證碼');
+        setError('系統錯誤：' + (err.message || err));
+      })
+      .clientSendOtp(currentEmail);
+  }
+
+  // ── Step 3：載入單位 + 完成註冊 ──────────────────────────
+
+  function loadUnits() {
+    google.script.run
+      .withSuccessHandler(function(units) {
+        var sel = document.getElementById('unitSelect');
+        sel.innerHTML = '<option value="">— 請選擇 —</option>';
+        (units || []).forEach(function(u) {
+          var opt = document.createElement('option');
+          opt.value = u;
+          opt.textContent = u;
+          sel.appendChild(opt);
+        });
+      })
+      .withFailureHandler(function() {
+        // 載入失敗不阻斷流程，使用者仍可手動輸入（select 保留空白項）
+      })
+      .clientGetUnits();
+  }
+
+  function handleRegister() {
+    var unit  = document.getElementById('unitSelect').value.trim();
+    var name  = document.getElementById('nameInput').value.trim();
+    var phone = document.getElementById('phoneInput').value.trim();
+
+    if (!unit)  { setError('請選擇服務單位'); return; }
+    if (!name)  { setError('請輸入姓名'); return; }
+    if (!phone) { setError('請輸入公務電話'); return; }
+
+    setLoading('registerBtn', true, '完成註冊並登入');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        setLoading('registerBtn', false, '完成註冊並登入');
+        if (result && result.success) {
+          sessionStorage.setItem('sessionId', result.sessionId);
+          sessionStorage.setItem('userEmail', currentEmail);
+          window.location.href = '<?= CONFIG.WEB_APP_URL ?>?page=dashboard';
+        } else {
+          setError((result && result.error) || '註冊失敗，請稍後再試');
+        }
+      })
+      .withFailureHandler(function(err) {
+        setLoading('registerBtn', false, '完成註冊並登入');
+        setError('系統錯誤：' + (err.message || err));
+      })
+      .clientRegister(currentEmail, unit, name, phone);
+  }
+
+  // ── 鍵盤快捷鍵 ────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var active = document.querySelector('.step.active');
+    if (!active) return;
+    if (active.id === 'step1') handleSendOtp();
+    else if (active.id === 'step2') handleVerifyOtp();
+    else if (active.id === 'step3') handleRegister();
+  });
+</script>
+
+</body>
+</html>
