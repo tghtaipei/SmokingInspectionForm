@@ -3,16 +3,7 @@
 // ============================================================
 
 function doGet(e) {
-  var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : 'login';
-  var template;
-
-  if (page === 'dashboard') {
-    template = HtmlService.createTemplateFromFile('dashboard');
-  } else {
-    template = HtmlService.createTemplateFromFile('login');
-  }
-
-  return template
+  return HtmlService.createTemplateFromFile('login')
     .evaluate()
     .setTitle('臺北市稽查系統')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')

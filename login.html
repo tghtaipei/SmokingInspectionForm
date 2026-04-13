@@ -3,88 +3,198 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>臺北市稽查系統 — 登入</title>
+  <title>臺北市稽查系統</title>
   <?!= include('styles'); ?>
+  <style>
+    /* Dashboard body 需要靠上對齊 */
+    body.dashboard-mode {
+      align-items: flex-start;
+      padding: 24px 16px;
+    }
+  </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="card-logo">&#127982;</div>
-  <div class="card-title">臺北市稽查系統</div>
-  <div class="card-subtitle">Smoking Inspection Form</div>
+<!-- ════════════════════════════════════════════════════════
+     登入區塊（預設顯示）
+     ════════════════════════════════════════════════════════ -->
+<div id="loginView">
+  <div class="card">
+    <div class="card-logo">&#127982;</div>
+    <div class="card-title">臺北市稽查系統</div>
+    <div class="card-subtitle">Smoking Inspection Form</div>
 
-  <!-- 步驟指示器 -->
-  <div class="step-indicator">
-    <div class="step-dot active" id="dot1"></div>
-    <div class="step-dot" id="dot2"></div>
-    <div class="step-dot" id="dot3"></div>
+    <!-- 步驟指示器 -->
+    <div class="step-indicator">
+      <div class="step-dot active" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+    </div>
+
+    <div class="alert alert-error" id="globalError"></div>
+    <div class="alert alert-info"  id="globalInfo"></div>
+
+    <!-- Step 1：輸入 Email -->
+    <div class="step active" id="step1">
+      <div class="form-group">
+        <label for="emailInput">機關 Email</label>
+        <input type="email" id="emailInput" placeholder="user@gov.taipei"
+               autocomplete="email" inputmode="email">
+        <p class="hint">僅限 @gov.taipei 信箱登入</p>
+      </div>
+      <button class="btn btn-primary" id="sendOtpBtn" onclick="handleSendOtp()">
+        發送驗證碼
+      </button>
+    </div>
+
+    <!-- Step 2：輸入驗證碼 -->
+    <div class="step" id="step2">
+      <div class="alert alert-success show" id="otpSentMsg"></div>
+      <div class="form-group">
+        <label for="otpInput">6 位數驗證碼</label>
+        <input type="text" id="otpInput" class="otp-input"
+               placeholder="______" maxlength="6"
+               autocomplete="one-time-code" inputmode="numeric"
+               pattern="\d{6}">
+        <p class="hint">驗證碼 10 分鐘內有效</p>
+      </div>
+      <button class="btn btn-primary" id="verifyOtpBtn" onclick="handleVerifyOtp()">
+        驗證並登入
+      </button>
+      <div class="resend-row">
+        <button class="btn-link" onclick="handleResend()">重新發送驗證碼</button>
+      </div>
+    </div>
+
+    <!-- Step 3：第一次登入 — 填寫資料 -->
+    <div class="step" id="step3">
+      <p style="font-size:14px;color:#4a5568;margin-bottom:18px;">
+        初次登入，請填寫以下資料以完成註冊。
+      </p>
+      <div class="form-group">
+        <label for="unitSelect">服務單位</label>
+        <select id="unitSelect">
+          <option value="">— 請選擇 —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="nameInput">姓名</label>
+        <input type="text" id="nameInput" placeholder="請輸入姓名" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="phoneInput">公務電話</label>
+        <input type="tel" id="phoneInput" placeholder="02-XXXX-XXXX" autocomplete="tel">
+      </div>
+      <button class="btn btn-primary" id="registerBtn" onclick="handleRegister()">
+        完成註冊並登入
+      </button>
+    </div>
   </div>
+</div>
 
-  <!-- 全域錯誤訊息 -->
-  <div class="alert alert-error" id="globalError"></div>
-  <div class="alert alert-info" id="globalInfo"></div>
+<!-- ════════════════════════════════════════════════════════
+     Dashboard 區塊（登入後顯示）
+     ════════════════════════════════════════════════════════ -->
+<div id="dashboardView" style="display:none; width:100%; max-width:500px;">
+  <div class="dashboard-card">
+    <div class="nav-bar">
+      <div>
+        <div class="nav-title">&#127982; 臺北市稽查系統</div>
+        <div class="nav-email" id="navEmail"></div>
+      </div>
+      <button class="btn btn-secondary"
+              style="width:auto;padding:6px 14px;font-size:13px;"
+              onclick="handleLogout()">
+        登出
+      </button>
+    </div>
 
-  <!-- ── Step 1：輸入 Email ── -->
-  <div class="step active" id="step1">
-    <div class="form-group">
-      <label for="emailInput">機關 Email</label>
-      <input type="email" id="emailInput" placeholder="user@gov.taipei"
-             autocomplete="email" inputmode="email">
-      <p class="hint">僅限 @gov.taipei 信箱登入</p>
-    </div>
-    <button class="btn btn-primary" id="sendOtpBtn" onclick="handleSendOtp()">
-      發送驗證碼
-    </button>
-  </div>
+    <div class="dashboard-body">
+      <div id="dashLoadingMsg" style="text-align:center;color:#718096;padding:20px 0;">
+        載入中...
+      </div>
 
-  <!-- ── Step 2：輸入驗證碼 ── -->
-  <div class="step" id="step2">
-    <div class="alert alert-success show" id="otpSentMsg"></div>
-    <div class="form-group">
-      <label for="otpInput">6 位數驗證碼</label>
-      <input type="text" id="otpInput" class="otp-input"
-             placeholder="______" maxlength="6"
-             autocomplete="one-time-code" inputmode="numeric"
-             pattern="\d{6}">
-      <p class="hint">驗證碼 10 分鐘內有效</p>
+      <div id="dashMainContent" style="display:none;">
+        <h2 style="font-size:17px;font-weight:700;color:#1a365d;margin-bottom:14px;">
+          歡迎回來
+        </h2>
+        <div class="profile-info">
+          <p><span class="profile-label">單位</span><strong id="profileUnit"></strong></p>
+          <p><span class="profile-label">姓名</span><strong id="profileName"></strong></p>
+          <p><span class="profile-label">電話</span><strong id="profilePhone"></strong></p>
+          <p><span class="profile-label">Email</span><strong id="profileEmail"></strong></p>
+        </div>
+        <hr class="divider">
+        <p style="font-size:14px;color:#4a5568;text-align:center;">
+          稽查表單功能開發中，敬請期待。
+        </p>
+      </div>
     </div>
-    <button class="btn btn-primary" id="verifyOtpBtn" onclick="handleVerifyOtp()">
-      驗證並登入
-    </button>
-    <div class="resend-row">
-      <button class="btn-link" onclick="handleResend()">重新發送驗證碼</button>
-    </div>
-  </div>
-
-  <!-- ── Step 3：第一次登入 — 填寫資料 ── -->
-  <div class="step" id="step3">
-    <p style="font-size:14px;color:#4a5568;margin-bottom:18px;">
-      初次登入，請填寫以下資料以完成註冊。
-    </p>
-    <div class="form-group">
-      <label for="unitSelect">服務單位</label>
-      <select id="unitSelect">
-        <option value="">— 請選擇 —</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="nameInput">姓名</label>
-      <input type="text" id="nameInput" placeholder="請輸入姓名" autocomplete="name">
-    </div>
-    <div class="form-group">
-      <label for="phoneInput">公務電話</label>
-      <input type="tel" id="phoneInput" placeholder="02-XXXX-XXXX" autocomplete="tel">
-    </div>
-    <button class="btn btn-primary" id="registerBtn" onclick="handleRegister()">
-      完成註冊並登入
-    </button>
   </div>
 </div>
 
 <script>
   var currentEmail = '';
+  var currentSessionId = '';
 
-  // ── 輔助函式 ──────────────────────────────────────────────
+  // ── 畫面切換 ──────────────────────────────────────────────
+
+  function showDashboard(sessionId, email) {
+    currentSessionId = sessionId;
+    currentEmail     = email;
+    sessionStorage.setItem('sessionId', sessionId);
+    sessionStorage.setItem('userEmail', email);
+
+    document.getElementById('loginView').style.display     = 'none';
+    document.getElementById('dashboardView').style.display = 'flex';
+    document.getElementById('dashboardView').style.flexDirection = 'column';
+    document.getElementById('dashboardView').style.alignItems = 'center';
+    document.body.classList.add('dashboard-mode');
+
+    document.getElementById('navEmail').textContent = email;
+
+    // 載入個人資料
+    google.script.run
+      .withSuccessHandler(function(profile) {
+        document.getElementById('dashLoadingMsg').style.display = 'none';
+        if (profile) {
+          document.getElementById('profileUnit').textContent  = profile.unit  || '';
+          document.getElementById('profileName').textContent  = profile.name  || '';
+          document.getElementById('profilePhone').textContent = profile.phone || '';
+          document.getElementById('profileEmail').textContent = profile.email || '';
+        }
+        document.getElementById('dashMainContent').style.display = 'block';
+      })
+      .withFailureHandler(function() {
+        document.getElementById('dashLoadingMsg').style.display = 'none';
+        document.getElementById('dashMainContent').style.display = 'block';
+      })
+      .clientGetProfile(email);
+  }
+
+  function handleLogout() {
+    if (currentSessionId) {
+      google.script.run.clientLogout(currentSessionId);
+    }
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('userEmail');
+
+    // 重設登入表單
+    currentSessionId = '';
+    currentEmail     = '';
+    document.getElementById('emailInput').value = '';
+    document.getElementById('otpInput').value   = '';
+    document.getElementById('dashMainContent').style.display    = 'none';
+    document.getElementById('dashLoadingMsg').style.display     = 'block';
+    document.getElementById('dashLoadingMsg').textContent       = '載入中...';
+
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('loginView').style.display     = '';
+    document.body.classList.remove('dashboard-mode');
+    goToStep(1);
+  }
+
+  // ── 步驟控制 ──────────────────────────────────────────────
 
   function setError(msg) {
     var el = document.getElementById('globalError');
@@ -102,7 +212,7 @@
 
   function setLoading(btnId, loading, text) {
     var btn = document.getElementById(btnId);
-    btn.disabled = loading;
+    btn.disabled    = loading;
     btn.textContent = loading ? '請稍候...' : text;
   }
 
@@ -111,12 +221,10 @@
     document.getElementById('step' + n).classList.add('active');
     setError('');
     setInfo('');
-
-    // 更新步驟指示器
     for (var i = 1; i <= 3; i++) {
       var dot = document.getElementById('dot' + i);
       dot.classList.remove('active', 'done');
-      if (i < n) dot.classList.add('done');
+      if (i < n)      dot.classList.add('done');
       else if (i === n) dot.classList.add('active');
     }
   }
@@ -130,7 +238,6 @@
       setError('僅限 @gov.taipei 信箱登入');
       return;
     }
-
     currentEmail = email.toLowerCase();
     setLoading('sendOtpBtn', true, '發送驗證碼');
 
@@ -161,7 +268,6 @@
       setError('請輸入 6 位數字驗證碼');
       return;
     }
-
     setLoading('verifyOtpBtn', true, '驗證並登入');
 
     google.script.run
@@ -171,14 +277,9 @@
           setError((result && result.error) || '驗證失敗');
           return;
         }
-
         if (!result.isNewUser) {
-          // 舊使用者：儲存 session 後跳轉 dashboard
-          sessionStorage.setItem('sessionId', result.sessionId);
-          sessionStorage.setItem('userEmail', currentEmail);
-          window.location.href = '<?= CONFIG.WEB_APP_URL ?>?page=dashboard';
+          showDashboard(result.sessionId, currentEmail);
         } else {
-          // 新使用者：前往 Step 3 填寫資料，先載入單位清單
           loadUnits();
           goToStep(3);
         }
@@ -193,7 +294,6 @@
   function handleResend() {
     if (!currentEmail) { goToStep(1); return; }
     setLoading('sendOtpBtn', true, '發送驗證碼');
-
     google.script.run
       .withSuccessHandler(function(result) {
         setLoading('sendOtpBtn', false, '發送驗證碼');
@@ -222,13 +322,9 @@
         sel.innerHTML = '<option value="">— 請選擇 —</option>';
         (units || []).forEach(function(u) {
           var opt = document.createElement('option');
-          opt.value = u;
-          opt.textContent = u;
+          opt.value = u; opt.textContent = u;
           sel.appendChild(opt);
         });
-      })
-      .withFailureHandler(function() {
-        // 載入失敗不阻斷流程，使用者仍可手動輸入（select 保留空白項）
       })
       .clientGetUnits();
   }
@@ -237,20 +333,16 @@
     var unit  = document.getElementById('unitSelect').value.trim();
     var name  = document.getElementById('nameInput').value.trim();
     var phone = document.getElementById('phoneInput').value.trim();
-
     if (!unit)  { setError('請選擇服務單位'); return; }
     if (!name)  { setError('請輸入姓名'); return; }
     if (!phone) { setError('請輸入公務電話'); return; }
-
     setLoading('registerBtn', true, '完成註冊並登入');
 
     google.script.run
       .withSuccessHandler(function(result) {
         setLoading('registerBtn', false, '完成註冊並登入');
         if (result && result.success) {
-          sessionStorage.setItem('sessionId', result.sessionId);
-          sessionStorage.setItem('userEmail', currentEmail);
-          window.location.href = '<?= CONFIG.WEB_APP_URL ?>?page=dashboard';
+          showDashboard(result.sessionId, currentEmail);
         } else {
           setError((result && result.error) || '註冊失敗，請稍後再試');
         }
@@ -262,15 +354,38 @@
       .clientRegister(currentEmail, unit, name, phone);
   }
 
-  // ── 鍵盤快捷鍵 ────────────────────────────────────────────
+  // ── 鍵盤 Enter 快捷鍵 ────────────────────────────────────
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
+    if (document.getElementById('dashboardView').style.display !== 'none') return;
     var active = document.querySelector('.step.active');
     if (!active) return;
     if (active.id === 'step1') handleSendOtp();
     else if (active.id === 'step2') handleVerifyOtp();
     else if (active.id === 'step3') handleRegister();
   });
+
+  // ── 自動還原 Session（重新整理頁面時） ───────────────────
+  (function tryRestoreSession() {
+    var sessionId = sessionStorage.getItem('sessionId');
+    var email     = sessionStorage.getItem('userEmail');
+    if (!sessionId || !email) return;
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result && result.valid) {
+          showDashboard(sessionId, email);
+        } else {
+          sessionStorage.removeItem('sessionId');
+          sessionStorage.removeItem('userEmail');
+        }
+      })
+      .withFailureHandler(function() {
+        sessionStorage.removeItem('sessionId');
+        sessionStorage.removeItem('userEmail');
+      })
+      .clientValidateSession(sessionId);
+  })();
 </script>
 
 </body>
