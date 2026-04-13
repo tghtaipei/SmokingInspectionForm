@@ -136,7 +136,13 @@ function verifyOtp(email, code) {
   writeAuditLog('OTP_VERIFIED', normalizedEmail, '', 'success', '');
 
   // 判斷是否為新使用者
-  var profile = getUserProfile(normalizedEmail);
+  var profile = null;
+  try {
+    profile = getUserProfile(normalizedEmail);
+  } catch (e) {
+    // getUserProfile 本身會 try-catch，這裡是防禦性保護
+    console.error('getUserProfile threw in verifyOtp:', e);
+  }
 
   if (profile) {
     // 舊使用者：建立 session
@@ -145,7 +151,7 @@ function verifyOtp(email, code) {
     writeAuditLog('LOGIN_SUCCESS', normalizedEmail, sessionId, 'success', 'returning user');
     return { success: true, isNewUser: false, sessionId: sessionId, profile: profile };
   } else {
-    // 新使用者：需要完成註冊
+    // 新使用者（或查詢失敗）：需要完成註冊
     return { success: true, isNewUser: true, email: normalizedEmail };
   }
 }
