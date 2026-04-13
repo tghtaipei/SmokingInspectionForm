@@ -16,7 +16,7 @@ function doGet(e) {
     .evaluate()
     .setTitle('臺北市稽查系統')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DENY);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
 /** 引入共用 HTML 片段（CSS/JS） */
