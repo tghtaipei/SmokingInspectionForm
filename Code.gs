@@ -5,7 +5,7 @@
 function doGet(e) {
   return HtmlService.createTemplateFromFile('login')
     .evaluate()
-    .setTitle('臺北市稽查系統')
+    .setTitle('菸害稽查電子表單')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
