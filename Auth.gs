@@ -52,7 +52,7 @@ function sendOtp(email) {
 
     MailApp.sendEmail({
       to: normalizedEmail,
-      subject: '【臺北市稽查系統】登入驗證碼',
+      subject: '【菸害稽查電子表單】登入驗證碼',
       body: [
         '您好，',
         '',
@@ -64,7 +64,7 @@ function sendOtp(email) {
         '',
         '若您未申請登入，請忽略此信件。',
         '',
-        '臺北市稽查系統',
+        '菸害稽查電子表單',
       ].join('\n'),
     });
 
