@@ -146,7 +146,7 @@
 
   // ── 畫面切換 ──────────────────────────────────────────────
 
-  function showDashboard(sessionId, email) {
+  function showDashboard(sessionId, email, profile) {
     currentSessionId = sessionId;
     currentEmail     = email;
     sessionStorage.setItem('sessionId', sessionId);
@@ -159,24 +159,16 @@
     document.body.classList.add('dashboard-mode');
 
     document.getElementById('navEmail').textContent = email;
+    document.getElementById('dashLoadingMsg').style.display = 'none';
 
-    // 載入個人資料
-    google.script.run
-      .withSuccessHandler(function(profile) {
-        document.getElementById('dashLoadingMsg').style.display = 'none';
-        if (profile) {
-          document.getElementById('profileUnit').textContent  = profile.unit  || '';
-          document.getElementById('profileName').textContent  = profile.name  || '';
-          document.getElementById('profilePhone').textContent = profile.phone || '';
-          document.getElementById('profileEmail').textContent = profile.email || '';
-        }
-        document.getElementById('dashMainContent').style.display = 'block';
-      })
-      .withFailureHandler(function() {
-        document.getElementById('dashLoadingMsg').style.display = 'none';
-        document.getElementById('dashMainContent').style.display = 'block';
-      })
-      .clientGetProfile(email);
+    // profile 由呼叫方傳入（已隨 session 一起驗證取得），直接顯示
+    if (profile) {
+      document.getElementById('profileUnit').textContent  = profile.unit  || '';
+      document.getElementById('profileName').textContent  = profile.name  || '';
+      document.getElementById('profilePhone').textContent = profile.phone || '';
+      document.getElementById('profileEmail').textContent = profile.email || '';
+    }
+    document.getElementById('dashMainContent').style.display = 'block';
   }
 
   function handleLogout() {
@@ -285,7 +277,7 @@
           return;
         }
         if (!result.isNewUser) {
-          showDashboard(result.sessionId, currentEmail);
+          showDashboard(result.sessionId, currentEmail, result.profile);
         } else {
           loadUnits();
           goToStep(3);
@@ -349,7 +341,7 @@
       .withSuccessHandler(function(result) {
         setLoading('registerBtn', false, '完成註冊並登入');
         if (result && result.success) {
-          showDashboard(result.sessionId, currentEmail);
+          showDashboard(result.sessionId, currentEmail, result.profile || null);
         } else {
           setError((result && result.error) || '註冊失敗，請稍後再試');
         }
@@ -373,15 +365,16 @@
   });
 
   // ── 自動還原 Session（重新整理頁面時） ───────────────────
+  // 使用 clientGetSessionProfile：一次呼叫同時驗證 session 並取回 profile，
+  // 避免 clientGetProfile(email) 讓任意人查詢他人資料的問題
   (function tryRestoreSession() {
     var sessionId = sessionStorage.getItem('sessionId');
-    var email     = sessionStorage.getItem('userEmail');
-    if (!sessionId || !email) return;
+    if (!sessionId) return;
 
     google.script.run
       .withSuccessHandler(function(result) {
         if (result && result.valid) {
-          showDashboard(sessionId, email);
+          showDashboard(sessionId, result.email, result.profile);
         } else {
           sessionStorage.removeItem('sessionId');
           sessionStorage.removeItem('userEmail');
@@ -391,7 +384,7 @@
         sessionStorage.removeItem('sessionId');
         sessionStorage.removeItem('userEmail');
       })
-      .clientValidateSession(sessionId);
+      .clientGetSessionProfile(sessionId);
   })();
 </script>
 

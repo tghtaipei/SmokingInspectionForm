@@ -3,6 +3,17 @@
 // ============================================================
 
 /**
+ * 防止 Spreadsheet 公式注入：以 '=+-@' 開頭的字串加前綴單引號
+ * 作用同 AuditLog.gs 的 sanitizeCell，但獨立命名避免混淆
+ */
+function sanitizeVal(v) {
+  if (v === null || v === undefined) return '';
+  var s = v.toString();
+  if (s.length > 0 && '=+-@'.indexOf(s[0]) !== -1) return "'" + s;
+  return s;
+}
+
+/**
  * 取得使用者 Profile
  * 掃描所有列，自動跳過標題列（第一欄值為 'email' 的列）
  * @param {string} email
@@ -57,36 +68,44 @@ function getUserProfile(email) {
  * @param {string} phone
  */
 function saveUserProfile(email, unit, name, phone) {
-  var ss = getSpreadsheet();
-  var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
 
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.SHEET_USERS);
-    sheet.appendRow(['email', 'unit', 'name', 'phone', 'created_at', 'last_login']);
-  }
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName(CONFIG.SHEET_USERS);
 
-  var now = new Date();
-  var data = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [];
-  var target = email.trim().toLowerCase();
-
-  // 檢查是否已有此 email（upsert）
-  for (var i = 0; i < data.length; i++) {
-    var cellVal = data[i][0] ? data[i][0].toString().trim().toLowerCase() : '';
-    if (cellVal === target) {
-      // 已存在，更新各欄（保留 created_at，更新 last_login）
-      var row = i + 1;
-      sheet.getRange(row, 2).setValue(unit);
-      sheet.getRange(row, 3).setValue(name);
-      sheet.getRange(row, 4).setValue(phone);
-      sheet.getRange(row, 6).setValue(now);
-      writeAuditLog('REGISTRATION_COMPLETE', email, '', 'success', 'updated existing row ' + row + ', unit:' + unit);
-      return;
+    if (!sheet) {
+      sheet = ss.insertSheet(CONFIG.SHEET_USERS);
+      sheet.appendRow(['email', 'unit', 'name', 'phone', 'created_at', 'last_login']);
     }
-  }
 
-  // 新增
-  sheet.appendRow([email, unit, name, phone, now, now]);
-  writeAuditLog('REGISTRATION_COMPLETE', email, '', 'success', 'inserted new row, unit:' + unit);
+    var now = new Date();
+    var data = sheet.getLastRow() > 0 ? sheet.getDataRange().getValues() : [];
+    var target = email.trim().toLowerCase();
+
+    // 檢查是否已有此 email（upsert）
+    for (var i = 0; i < data.length; i++) {
+      var cellVal = data[i][0] ? data[i][0].toString().trim().toLowerCase() : '';
+      if (cellVal === target) {
+        // 已存在，更新各欄（保留 created_at，更新 last_login）；套用公式注入防護
+        var row = i + 1;
+        sheet.getRange(row, 2).setValue(sanitizeVal(unit));
+        sheet.getRange(row, 3).setValue(sanitizeVal(name));
+        sheet.getRange(row, 4).setValue(sanitizeVal(phone));
+        sheet.getRange(row, 6).setValue(now);
+        writeAuditLog('REGISTRATION_COMPLETE', email, '', 'success', 'updated existing row ' + row + ', unit:' + unit);
+        return;
+      }
+    }
+
+    // 新增；套用公式注入防護
+    sheet.appendRow([email, sanitizeVal(unit), sanitizeVal(name), sanitizeVal(phone), now, now]);
+    writeAuditLog('REGISTRATION_COMPLETE', email, '', 'success', 'inserted new row, unit:' + unit);
+
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
