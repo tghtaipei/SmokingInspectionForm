@@ -9,7 +9,7 @@ var CONFIG = {
   SHEET_AUDIT:       'audit_logs',
   ALLOWED_DOMAIN:    'gov.taipei',
   OTP_EXPIRY_MS:     10 * 60 * 1000,          // 10 分鐘
-  SESSION_EXPIRY_MS: 5 * 24 * 60 * 60 * 1000, // 5 天
+  SESSION_EXPIRY_MS: 1 * 24 * 60 * 60 * 1000, // 1 天
   WEB_APP_URL:       'YOUR_WEB_APP_URL',
 };
 
